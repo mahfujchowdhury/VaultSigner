@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0A0C0F" />
+<title>Vault Signer — Cold Wallet</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; font-src 'self' file:; img-src 'self' file: data: blob:; media-src 'self' blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/tabler-icons.min.css">
+<style>
+  :root{
+    --ink:#0A0C0F;
+    --charcoal:#14171C;
+    --steel:#1D2129;
+    --border:#262A32;
+    --paper:#ECEEF1;
+    --mist:#8B93A3;
+    --faint:#565C68;
+    --signal:#2C7BFF;
+    --signal-dim:rgba(44,123,255,0.12);
+    --secure:#1FBE8C;
+    --secure-dim:rgba(31,190,140,0.12);
+    --ember:#F5A93E;
+    --ember-dim:rgba(245,169,62,0.1);
+    --danger:#FF5C5C;
+    --danger-dim:rgba(255,92,92,0.1);
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  [data-theme="light"]{
+    --ink:#F5F6F8;
+    --charcoal:#FFFFFF;
+    --steel:#ECEEF1;
+    --border:#D8DCE3;
+    --paper:#1A1D23;
+    --mist:#5A6170;
+    --faint:#8B93A3;
+    --signal:#2563EB;
+    --signal-dim:rgba(37,99,235,0.08);
+    --secure:#16A34A;
+    --secure-dim:rgba(22,163,74,0.08);
+    --ember:#D97706;
+    --ember-dim:rgba(217,119,6,0.08);
+    --danger:#DC2626;
+    --danger-dim:rgba(220,38,38,0.08);
+  }
+  [data-theme="light"] .phone{background:#E2E4E9;box-shadow:0 0 0 1px rgba(0,0,0,0.08),0 40px 80px rgba(0,0,0,0.12);}
+  [data-theme="light"] .app-wrap{background:radial-gradient(ellipse 70% 60% at 50% 40%,#E8EAF0,#D5D8E0);}
+  [data-theme="light"] .btn-primary{color:#fff;}
+  [data-theme="light"] .btn-secondary{color:var(--paper);}
+  [data-theme="light"] .toggle span{background:#fff;}
+  [data-theme="light"] .pin-dot.filled{background:var(--paper);border-color:var(--paper);}
+  [data-theme="light"] .modal-overlay{background:rgba(0,0,0,0.4);}
+  [data-theme="light"] .qr-placeholder{background:#fff;border-color:var(--border);}
+  [data-theme="light"] .seed-word{background:#fff;}
+  [data-theme="light"] input,.input{background:#fff;color:var(--paper);}
+  [data-theme="light"] .pin-key{background:#fff;color:var(--paper);}
+  [data-theme="light"] .pin-key:active{background:var(--steel);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{height:100%;-webkit-text-size-adjust:100%;}
+  html,body{height:100%;background:#080A0D;color:var(--paper);font-family:var(--font-body);overflow:hidden;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+  body{height:100%;height:100dvh;}
+  a{color:inherit;text-decoration:none;}
+  :focus-visible{outline:2px solid var(--signal);outline-offset:2px;}
+  button{cursor:pointer;font-family:var(--font-body);-webkit-tap-highlight-color:transparent;}
+  input{font-family:var(--font-body);-webkit-appearance:none;}
+
+  .app-wrap{
+    display:flex;align-items:center;justify-content:center;
+    height:100%;height:100dvh;width:100vw;
+    background:radial-gradient(ellipse 70% 60% at 50% 40%,#111318,#080A0D);
+  }
+
+  .phone{
+    width:380px;height:780px;max-height:100%;
+    background:#000;border-radius:44px;padding:12px;
+    border:0.5px solid var(--border);
+    box-shadow:0 0 0 1px rgba(255,255,255,0.04),0 40px 80px rgba(0,0,0,0.6);
+    position:relative;overflow:hidden;flex-shrink:0;
+  }
+
+  .screen{
+    width:100%;height:100%;
+    background:var(--ink);border-radius:34px;overflow:hidden;
+    display:flex;flex-direction:column;position:relative;
+  }
+
+  .screen-slide{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    transition:transform .35s cubic-bezier(.4,0,.2,1),opacity .35s ease;
+    will-change:transform,opacity;
+    overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:none;
+  }
+  .screen-slide::-webkit-scrollbar{display:none;}
+  .screen-slide.hidden-right{transform:translateX(100%);opacity:0;pointer-events:none;}
+  .screen-slide.hidden-left{transform:translateX(-30%);opacity:0;pointer-events:none;}
+  .screen-slide.active{transform:translateX(0);opacity:1;pointer-events:auto;}
+
+  .airgap-banner{
+    background:var(--secure-dim);border-bottom:0.5px solid rgba(31,190,140,0.3);
+    padding:6px 16px;font-size:10px;color:var(--secure);text-align:center;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    font-family:var(--font-mono);letter-spacing:0.04em;
+  }
+  .airgap-banner i{font-size:12px;}
+
+  .statusbar{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 22px 4px;font-size:11px;color:var(--mist);
+    font-family:var(--font-mono);position:sticky;top:0;z-index:10;
+    background:var(--ink);
+  }
+  .statusbar i{font-size:13px;}
+
+  .content{flex:1;padding:20px 20px 24px;}
+
+  .navbar{
+    display:flex;justify-content:space-around;padding:14px 0 18px;
+    border-top:0.5px solid var(--border);
+    background:var(--ink);position:sticky;bottom:0;z-index:10;
+  }
+  .navitem{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    cursor:pointer;transition:color .2s;
+  }
+  .navitem i{font-size:19px;}
+  .navitem span{font-size:9px;letter-spacing:0.03em;}
+  .navitem.active i,.navitem.active span{color:var(--signal);}
+  .navitem:not(.active) i,.navitem:not(.active) span{color:var(--faint);}
+
+  .card{background:var(--charcoal);border:0.5px solid var(--border);border-radius:14px;padding:16px;}
+  .btn-primary{
+    background:var(--signal);color:#fff;border:none;border-radius:12px;padding:14px;
+    font-family:var(--font-body);font-weight:500;font-size:14px;width:100%;cursor:pointer;
+    transition:transform .15s,filter .15s;
+  }
+  .btn-primary:active{transform:scale(0.97);filter:brightness(0.9);}
+  .btn-primary:disabled{opacity:0.4;pointer-events:none;}
+  .btn-secondary{
+    background:transparent;color:var(--paper);border:0.5px solid var(--border);border-radius:12px;
+    padding:14px;font-family:var(--font-body);font-weight:500;font-size:14px;width:100%;cursor:pointer;
+    transition:transform .15s,background .15s;
+  }
+  .btn-secondary:active{transform:scale(0.97);background:var(--steel);}
+  .btn-danger{
+    background:var(--danger-dim);color:var(--danger);border:0.5px solid rgba(255,92,92,0.3);border-radius:12px;
+    padding:14px;font-family:var(--font-body);font-weight:500;font-size:14px;width:100%;cursor:pointer;
+    transition:transform .15s,background .15s;
+  }
+  .btn-danger:active{transform:scale(0.97);background:rgba(255,92,92,0.2);}
+  .btn-ghost{
+    background:var(--steel);color:var(--mist);border:0.5px solid var(--border);border-radius:999px;
+    padding:8px 14px;font-family:var(--font-body);font-size:12px;cursor:pointer;
+    display:flex;align-items:center;gap:6px;justify-content:center;
+    transition:background .15s;
+  }
+  .btn-ghost:hover{background:var(--border);}
+
+  .row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 2px;border-bottom:0.5px solid var(--border);
+  }
+  .row:last-child{border-bottom:none;}
+
+  .input{
+    background:var(--steel);border:0.5px solid var(--border);border-radius:10px;padding:12px 13px;
+    font-family:var(--font-body);font-size:13px;color:var(--paper);width:100%;
+    transition:border-color .2s;
+  }
+  .input::placeholder{color:var(--faint);}
+  .input:focus{border-color:var(--signal);outline:none;}
+
+  .mono{font-family:var(--font-mono);}
+  .label-eyebrow{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:0.06em;margin:0 0 8px 2px;}
+
+  .pill{
+    font-size:12px;padding:7px 13px;border-radius:999px;border:0.5px solid var(--border);
+    background:var(--steel);color:var(--mist);cursor:pointer;transition:all .2s;
+  }
+  .pill.active{background:var(--signal-dim);border-color:var(--signal);color:#8FB8FF;}
+
+  .toggle{
+    width:38px;height:22px;border-radius:999px;background:var(--border);
+    position:relative;display:inline-block;flex-shrink:0;cursor:pointer;
+    transition:background .25s;
+  }
+  .toggle.on{background:var(--signal);}
+  .toggle span{
+    position:absolute;top:2px;left:2px;width:18px;height:18px;
+    border-radius:50%;background:#fff;transition:left .25s cubic-bezier(.4,0,.2,1);
+  }
+  .toggle.on span{left:18px;}
+
+  .checkbox-wrap{
+    display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mist);
+    margin-bottom:16px;cursor:pointer;user-select:none;
+  }
+  .checkbox-wrap input{width:15px;height:15px;accent-color:var(--signal);cursor:pointer;}
+
+  .back-btn{
+    display:flex;align-items:center;gap:4px;font-size:13px;color:var(--mist);
+    background:none;border:none;cursor:pointer;padding:4px 0;margin-bottom:8px;
+    transition:color .15s;
+  }
+  .back-btn:hover{color:var(--paper);}
+
+  .seed-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;transition:filter .3s;}
+  .seed-word{
+    background:var(--steel);border:0.5px solid var(--border);border-radius:8px;
+    padding:8px 6px;font-size:12px;display:flex;gap:6px;
+  }
+
+  .action-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
+  .action-btn{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    cursor:pointer;background:none;border:none;color:var(--mist);
+    transition:transform .15s;
+  }
+  .action-btn:active{transform:scale(0.92);}
+  .action-btn .icon-circle{
+    width:40px;height:40px;border-radius:50%;background:var(--charcoal);
+    border:0.5px solid var(--border);display:flex;align-items:center;justify-content:center;
+  }
+  .action-btn i{color:var(--signal);font-size:16px;}
+  .action-btn .icon-circle svg{width:20px;height:20px;color:var(--signal);display:block;}
+  .action-btn span{font-size:10px;}
+
+  .asset-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 2px;border-bottom:0.5px solid var(--border);
+    cursor:pointer;transition:background .15s;border-radius:8px;
+  }
+  .asset-row:last-child{border-bottom:none;}
+  .asset-row:active{background:var(--steel);}
+
+  .asset-icon{
+    width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:11px;font-weight:500;
+  }
+
+  .qr-placeholder{
+    width:200px;height:200px;background:var(--charcoal);border:0.5px solid var(--border);
+    border-radius:14px;display:flex;align-items:center;justify-content:center;
+    position:relative;overflow:hidden;margin:0 auto;
+  }
+  .qr-placeholder i{font-size:96px;color:var(--paper);}
+
+  .address-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--charcoal);border:0.5px solid var(--border);
+    border-radius:14px;padding:12px 16px;cursor:pointer;
+    transition:background .15s;
+  }
+  .address-bar:active{background:var(--steel);}
+
+  .toast{
+    position:absolute;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--secure);color:#fff;font-size:12px;font-weight:500;
+    padding:8px 18px;border-radius:999px;opacity:0;
+    transition:opacity .3s,transform .3s;pointer-events:none;z-index:100;
+    white-space:nowrap;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .modal-overlay{
+    position:absolute;inset:0;background:rgba(0,0,0,0.7);
+    display:flex;align-items:flex-end;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;
+    border-radius:34px;
+  }
+  .modal-overlay.show{opacity:1;pointer-events:auto;}
+  .modal-sheet{
+    width:100%;background:var(--charcoal);border-radius:20px 20px 0 0;
+    padding:12px 20px 32px;transform:translateY(100%);
+    transition:transform .35s cubic-bezier(.4,0,.2,1);
+  }
+  .modal-overlay.show .modal-sheet{transform:translateY(0);}
+  .modal-handle{width:36px;height:4px;border-radius:999px;background:var(--border);margin:0 auto 20px;}
+
+  .security-badge{
+    display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);
+    text-align:center;justify-content:center;line-height:1.6;
+  }
+
+  .pin-dots{display:flex;gap:16px;justify-content:center;margin:24px 0;}
+  .pin-dot{
+    width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border);
+    transition:background .2s,border-color .2s;
+  }
+  .pin-dot.filled{background:var(--paper);border-color:var(--paper);}
+
+  .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:260px;margin:0 auto;}
+  .pin-key{
+    width:64px;height:64px;border-radius:50%;background:var(--steel);border:0.5px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:22px;font-weight:500;color:var(--paper);
+    cursor:pointer;transition:transform .1s,background .1s;
+    margin:0 auto;
+  }
+  .pin-key:active{transform:scale(0.9);background:var(--border);}
+  .pin-key.empty{background:transparent;border:none;pointer-events:none;}
+  .pin-key.action{background:transparent;border:none;font-size:13px;color:var(--mist);}
+
+  .quiz-word{
+    display:inline-flex;align-items:center;gap:4px;
+    background:var(--signal-dim);border:0.5px solid var(--signal);border-radius:8px;
+    padding:4px 10px;font-family:var(--font-mono);font-size:13px;color:#8FB8FF;
+  }
+
+  .sign-flow-step{
+    display:flex;align-items:center;gap:12px;padding:14px;
+    background:var(--steel);border:0.5px solid var(--border);border-radius:12px;
+    margin-bottom:8px;
+  }
+  .sign-flow-step .step-num{
+    width:28px;height:28px;border-radius:50%;background:var(--signal-dim);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:600;color:var(--signal);flex-shrink:0;
+  }
+  .sign-flow-step.active-step{border-color:var(--signal);background:var(--signal-dim);}
+  .sign-flow-step.active-step .step-num{background:var(--signal);color:#fff;}
+  .sign-flow-step.done .step-num{background:var(--secure);color:#fff;}
+
+  .offline-badge{
+    display:flex;align-items:center;gap:6px;
+    background:var(--secure-dim);border:0.5px solid rgba(31,190,140,0.3);
+    border-radius:10px;padding:10px 14px;margin-bottom:16px;
+  }
+  .offline-badge i{color:var(--secure);font-size:16px;}
+  .offline-badge span{font-size:12px;color:var(--secure);}
+
+  .seg{display:flex;background:var(--steel);border:.5px solid var(--border);border-radius:12px;padding:3px;margin-bottom:16px}
+  .seg button{flex:1;background:none;border:0;color:var(--mist);padding:9px;border-radius:9px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+  .seg button.on{background:var(--signal);color:#fff}
+  .drop{border:1.5px dashed var(--border);border-radius:16px;height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--mist);font-size:12px;margin-bottom:14px;cursor:pointer;text-align:center;padding:0 14px}
+  .drop.has{border-color:var(--secure);background:var(--secure-dim);color:var(--secure)}
+  .acct{display:flex;align-items:center;gap:12px;padding:12px;border:.5px solid var(--border);border-radius:12px;margin-bottom:8px;cursor:pointer;background:var(--steel)}
+  .acct.on{border-color:var(--signal);background:var(--signal-dim)}
+  .acct .asset-icon{width:34px;height:34px}
+  .hide{display:none!important}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+  .anim-pulse{animation:pulse 2s infinite;}
+
+  @keyframes scanline{
+    0%{top:-4px;}
+    100%{top:calc(100% + 4px);}
+  }
+  .scanner-line{
+    position:absolute;left:0;right:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--signal),transparent);
+    animation:scanline 2s linear infinite;
+  }
+
+  @media(max-width:420px){
+    html,body{overflow:hidden;}
+    .app-wrap{padding:0;}
+    .phone{width:100vw;height:100vh;height:100dvh;border-radius:0;padding:0;max-height:none;border:none;box-shadow:none;}
+    .screen{border-radius:0;}
+    .modal-overlay{border-radius:0;}
+    .screen-slide{-webkit-overflow-scrolling:touch;}
+    .content{padding-bottom:32px;}
+    .statusbar{padding-top:max(14px,env(safe-area-inset-top,14px));}
+    .navbar{padding-bottom:max(18px,env(safe-area-inset-bottom,18px));}
+  }
+  @media(max-width:420px) and (min-height:800px){
+    .screen-slide{height:100dvh;}
+  }
+
+  /* ---- Dashboard header: account + network ---- */
+  .hdr{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px;}
+  .hdr-acct{display:flex;align-items:center;gap:10px;min-width:0;flex:1;cursor:pointer;}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--steel);border:.5px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .avatar.sm{width:34px;height:34px;}
+  .avatar svg{width:100%;height:100%;display:block;}
+  .hdr-txt{min-width:0;}
+  .hdr-name{display:flex;align-items:center;gap:4px;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--paper);line-height:1.3;}
+  .hdr-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .hdr-name svg{flex-shrink:0;color:var(--mist);}
+  .hdr-addr{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);line-height:1.4;margin-top:1px;}
+  .copy-btn{background:none;border:0;padding:2px;margin:0;color:var(--faint);cursor:pointer;display:flex;align-items:center;}
+  .copy-btn:hover{color:var(--paper);}
+  .net-pill{display:flex;align-items:center;gap:6px;padding:5px 9px 5px 5px;border-radius:999px;background:var(--steel);border:.5px solid var(--border);color:var(--mist);cursor:pointer;flex-shrink:0;}
+  .net-pill:hover{background:var(--border);}
+  .coin{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0;font-family:var(--font-body);}
+  .coin svg{width:100%;height:100%;display:block;}
+  .coin.all{background:var(--signal-dim);color:var(--signal);}
+
+  .nrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:var(--steel);border:1px solid transparent;margin-bottom:8px;cursor:pointer;font-size:14px;color:var(--paper);}
+  .nrow:hover{filter:brightness(1.1);}
+  .nrow.on{border-color:var(--signal);background:var(--signal-dim);}
+  .nrow .nname{flex:1;}
+  .nrow svg{flex-shrink:0;}
+  .ngroup{background:var(--steel);border:1px solid transparent;border-radius:12px;margin-bottom:8px;}
+  .ngroup.on{border-color:var(--signal);background:var(--signal-dim);}
+  .ngroup > .nrow{background:transparent;margin:0;border-color:transparent;}
+  .ngroup-body{padding:8px 8px 2px;margin:0 6px;border-top:.5px solid var(--border);}
+  .ngroup-body .nrow{background:var(--border);}
+  .ngroup-body .nrow.on{background:var(--signal-dim);border-color:var(--signal);}
+
+  /* Bitcoin address type screen */
+  .at-head{display:flex;align-items:center;justify-content:center;position:relative;margin:0 0 18px;min-height:32px;}
+  .at-head .at-back{position:absolute;left:-4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--paper);padding:6px;display:flex;align-items:center;}
+  .at-head .at-back i{font-size:22px;}
+  .at-head p{font-family:var(--font-display);font-weight:600;font-size:17px;margin:0;}
+  .at-card{position:relative;background:var(--charcoal);border:1px solid transparent;border-radius:14px;padding:14px 14px 12px;margin-bottom:10px;cursor:pointer;transition:border-color .2s,background .2s;}
+  .at-card:active{filter:brightness(1.15);}
+  .at-card.on{border-color:var(--ember);background:var(--ember-dim);}
+  .at-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .at-name{font-size:13px;color:var(--paper);line-height:1.35;}
+  .at-path{font-family:var(--font-mono);font-size:11px;color:var(--mist);}
+  .at-check{color:var(--paper);font-size:20px;flex-shrink:0;}
+  .at-bot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;}
+  .at-addr{display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;color:var(--mist);min-width:0;}
+  .at-addr svg{color:var(--faint);flex-shrink:0;}
+  .at-addr:active svg{color:var(--signal);}
+  .at-rec{font-size:11px;color:var(--secure);border:1px solid var(--secure);border-radius:6px;padding:2px 8px;background:var(--secure-dim);flex-shrink:0;}
+  .at-hint{font-size:10.5px;color:var(--faint);line-height:1.6;text-align:center;margin-top:14px;}
+
+  /* ---- wired-app additions ---- */
+  .rv-row{display:flex;justify-content:space-between;gap:14px;margin-bottom:14px;font-size:12px;}
+  .rv-row:last-child{margin-bottom:0;}
+  .rv-row .k{color:var(--mist);flex-shrink:0;}
+  .rv-row .v{text-align:right;color:var(--paper);min-width:0;}
+  .rv-row .v.long{word-break:break-all;font-size:11px;}
+  .rv-row .v.strong{font-weight:500;font-size:13px;}
+  .rv-row .v.accent{color:var(--signal);font-weight:500;font-size:13px;}
+  .rv-box{display:flex;gap:8px;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11px;line-height:1.5;color:var(--paper);}
+  .rv-box i{font-size:15px;margin-top:1px;flex-shrink:0;}
+  .rv-box.real{background:var(--danger-dim);border:.5px solid rgba(255,92,92,.4);}.rv-box.real i{color:var(--danger);}
+  .rv-box.test{background:var(--secure-dim);border:.5px solid rgba(31,190,140,.35);}.rv-box.test i{color:var(--secure);}
+  .rv-box.warn{background:var(--ember-dim);border:.5px solid rgba(245,169,62,.35);}.rv-box.warn i{color:var(--ember);}
+  .rv-box.err{background:var(--danger-dim);border:.5px solid rgba(255,92,92,.4);}.rv-box.err i{color:var(--danger);}
+  .rv-pre{white-space:pre-wrap;word-break:break-all;font-size:10px;line-height:1.6;color:var(--mist);background:var(--steel);border-radius:10px;padding:10px 12px;margin:0 0 12px;}
+  .scan-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .pin-err{font-size:11px;color:var(--danger);margin:12px 0 0;text-align:center;min-height:16px;}
+  .qr-box{width:200px;height:200px;background:#fff;border-radius:14px;overflow:hidden;margin:0 auto;}
+  .qr-box svg{width:100%;height:100%;display:block;}
+  .qr-meta{font-size:10px;color:var(--faint);text-align:center;margin:8px 0 0;min-height:14px;}
+</style>
+</head>
+<body>
+<div class="app-wrap">
+<div class="phone">
+<div class="screen">
+
+<!-- ======== UNLOCK ======== -->
+<div class="screen-slide hidden-right" id="screen-unlock">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content" style="display:flex;flex-direction:column;">
+    <div style="text-align:center;margin:8px 0 4px;">
+      <div style="width:52px;height:52px;border-radius:15px;background:var(--signal-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="ti ti-lock" style="font-size:24px;color:var(--signal);"></i></div>
+      <p style="font-family:var(--font-display);font-weight:600;font-size:19px;margin:0 0 4px;">Vault locked</p>
+      <p id="unlockSub" style="font-size:12px;color:var(--mist);margin:0;line-height:1.6;">Enter your PIN to unlock</p>
+    </div>
+    <div id="pinDots4" class="pin-dots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
+    <div class="pin-pad"><div class="pin-key" onclick="pinInput(4,1)">1</div><div class="pin-key" onclick="pinInput(4,2)">2</div><div class="pin-key" onclick="pinInput(4,3)">3</div><div class="pin-key" onclick="pinInput(4,4)">4</div><div class="pin-key" onclick="pinInput(4,5)">5</div><div class="pin-key" onclick="pinInput(4,6)">6</div><div class="pin-key" onclick="pinInput(4,7)">7</div><div class="pin-key" onclick="pinInput(4,8)">8</div><div class="pin-key" onclick="pinInput(4,9)">9</div><div class="pin-key empty"></div><div class="pin-key" onclick="pinInput(4,0)">0</div><div class="pin-key action" onclick="pinDelete(4)"><i class="ti ti-delete"></i></div></div>
+    <p id="unlockErr" class="pin-err"></p>
+    <button class="btn-ghost" style="margin:6px auto 0;" onclick="forgotPin()">Forgot PIN?</button>
+  </div>
+</div>
+
+<!-- ======== SCREEN 1: ONBOARDING ======== -->
+<div class="screen-slide hidden-right" id="screen-onboard">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content" style="display:flex;flex-direction:column;justify-content:center;flex:1;">
+    <div style="text-align:center;margin-bottom:40px;">
+      <div style="width:64px;height:64px;border-radius:18px;background:var(--signal-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+        <svg width="34" height="34" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="img">
+          <path fill="color-mix(in srgb, var(--signal) 70%, #000)" d="M4.048 29.644c-.811-.558-1.541-4.073-.936-4.404c.738-.402.686.835 2.255 2.362c1.569 1.528 6.47.913 7.708 1.326c1.363.455-6.385 2.533-9.027.716z"/>
+          <path fill="var(--signal)" d="M5.367 27.603C4 22 4.655 18.919 5.433 16.861C6.8 13.24 16.699 5.169 23.8 2.637C25.678 1.967 31.62 1 35 1c.589 2.332-1.174 6.717-1.62 7.518c-1.009 1.81-3.564 4.273-8.646 9.482c-.252.258-5.119-.46-5.376-.191c-.283.296 4.044 1.579 3.755 1.889c-.738.79-1.495 1.624-2.268 2.507c-.172.196-8.311-.923-8.484-.722c-.232.27 7.501 1.862 7.266 2.14c-.645.765-1.299 1.564-1.959 2.397c-1.725 2.178-12.301 1.583-12.301 1.583z"/>
+          <path fill="color-mix(in srgb, var(--signal) 70%, #000)" d="M19.15 12.787c1.588.966 5.331 1.943 8.316 2.422c1.898-1.937 3.299-3.378 4.302-4.529c-2.259-.49-5.742-1.3-7.487-2.087l-.816-.403l-4.872 4.17l.557.427z"/>
+          <path fill="color-mix(in srgb, var(--signal) 40%, #000)" d="M35.088 1.514A3.85 3.85 0 0 0 35 1c-.378 0-.792.014-1.225.036c-3.438.178-8.307 1.006-9.975 1.601c-.345.123-.702.27-1.059.418c-.478.198-.964.416-1.459.654c.356 1.481 1.126 3.144 1.807 4.013a72.185 72.185 0 0 0-4.836 4.115C12.598 17.085 8.232 22.709 5.248 27.079c.04.174.076.344.12.524c0 0 .219.012.589.026c1.482-2.288 5.703-8.239 13.194-14.841a91.61 91.61 0 0 1 5.13-4.195c1.745.787 5.228 1.597 7.487 2.087c.322-.369.606-.712.849-1.028c.316-.412.569-.785.763-1.134c.415-.746 1.969-4.594 1.708-7.004z"/>
+          <path fill="color-mix(in srgb, var(--signal) 70%, #000)" d="M35 1c-.369 0-.751-.003-1.138-.008c-3.915 1.874-7.509 4.194-10.772 6.73c-.68-.87-1.451-2.532-1.807-4.013a42.574 42.574 0 0 0-4.484 2.539c.309 1.911.852 4.377 1.455 5.589C6.827 22.441.638 34.605.553 34.776a.5.5 0 0 0 .895.448c.119-.238 12.144-23.883 33.659-33.72A7.693 7.693 0 0 0 35 1z"/>
+        </svg>
+      </div>
+      <p style="font-family:var(--font-display);font-weight:600;font-size:22px;margin:0 0 8px;">Vault Signer</p>
+      <p style="font-size:13px;color:var(--mist);line-height:1.6;margin:0 0 4px;">Air-gapped cold wallet</p>
+      <p style="font-size:11px;color:var(--faint);line-height:1.6;margin:0;">Keys never touch the network.<br/>Signing happens fully offline.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn-primary" onclick="goTo('screen-create')">Create new wallet</button>
+      <button class="btn-secondary" onclick="goTo('screen-import')">Import existing wallet</button>
+    </div>
+    <p style="font-size:10px;color:var(--faint);text-align:center;margin-top:20px;line-height:1.6;">
+      <i class="ti ti-wifi-off" style="font-size:11px;"></i> This app has no network permission<br/>Your seed never leaves this device
+    </p>
+  </div>
+</div>
+
+<!-- ======== SCREEN 2: CREATE WALLET ======== -->
+<div class="screen-slide hidden-right" id="screen-create">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="goTo('screen-onboard')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:19px;margin:0 0 8px;">Create new wallet</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 20px;line-height:1.6;">A 24-word seed phrase will be generated on this device. Write it down and store it safely offline.</p>
+
+    <div class="offline-badge">
+      <i class="ti ti-wifi-off"></i>
+      <span>100% offline — no network access</span>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="row">
+        <div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-hash" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Word count</span></div>
+        <span class="pill active">24 words</span>
+      </div>
+      <div class="row">
+        <div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-shield" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">BIP39 passphrase</span></div>
+        <span class="pill" id="ppillCreate" onclick="togglePassCreate(this)">Optional</span>
+      </div>
+    </div>
+
+    <input class="input" id="createName" maxlength="24" placeholder="Account name (optional)" style="margin-bottom:12px;" />
+    <div id="createPassWrap" class="hide" style="margin-bottom:12px;">
+      <input class="input" id="createPass" type="password" autocomplete="off" placeholder="BIP39 passphrase — not recoverable if forgotten" />
+    </div>
+    <button class="btn-primary" id="genBtn" onclick="startCreate()">Generate seed phrase</button>
+    <p style="font-size:11px;color:var(--faint);text-align:center;line-height:1.6;margin-top:14px;">
+      <i class="ti ti-alert-triangle" style="font-size:12px;color:var(--ember);"></i>
+      If this device is lost, the seed is the only way to recover funds
+    </p>
+  </div>
+</div>
+
+<!-- ======== SCREEN 3: SEED PHRASE ======== -->
+<div class="screen-slide hidden-right" id="screen-seed">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="goTo('screen-create')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;">Your seed phrase</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 14px;line-height:1.6;">Write these 24 words down in order. Anyone with this phrase controls your funds.</p>
+    <div style="display:flex;gap:8px;background:var(--ember-dim);border:0.5px solid rgba(245,169,62,0.35);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <i class="ti ti-alert-triangle" style="color:var(--ember);font-size:15px;margin-top:1px;"></i>
+      <span style="font-size:11px;color:var(--paper);line-height:1.5;">Never share this phrase. Never type it on any website. Support will never ask for it.</span>
+    </div>
+    <div id="seedgrid" class="seed-grid" style="filter:blur(6px);margin-bottom:12px;"></div>
+    <button class="btn-ghost" id="revealbtn" style="width:100%;margin-bottom:16px;" onclick="toggleSeed()">
+      <i class="ti ti-eye"></i> Reveal words
+    </button>
+    <label class="checkbox-wrap" id="backupcheck">
+      <input type="checkbox" onchange="document.getElementById('seedContinueBtn').disabled=!this.checked" />
+      I've written this down safely
+    </label>
+    <button class="btn-primary" id="seedContinueBtn" disabled onclick="goTo('screen-quiz')">Verify backup</button>
+  </div>
+</div>
+
+<!-- ======== SCREEN 4: BACKUP QUIZ ======== -->
+<div class="screen-slide hidden-right" id="screen-quiz">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="goTo('screen-seed')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;">Verify your backup</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 24px;line-height:1.6;">Enter the following words from your seed phrase to confirm your backup is correct.</p>
+
+    <div style="margin-bottom:20px;">
+      <p style="font-size:12px;color:var(--mist);margin-bottom:10px;">Enter word <span class="quiz-word" id="qn1">#7</span></p>
+      <input class="input mono" id="quiz1" placeholder="Type word #7 here" style="margin-bottom:4px;" oninput="checkQuiz()" />
+      <p id="quiz1err" style="font-size:11px;color:var(--danger);margin:0;display:none;">Incorrect word</p>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <p style="font-size:12px;color:var(--mist);margin-bottom:10px;">Enter word <span class="quiz-word" id="qn2">#14</span></p>
+      <input class="input mono" id="quiz2" placeholder="Type word #14 here" style="margin-bottom:4px;" oninput="checkQuiz()" />
+      <p id="quiz2err" style="font-size:11px;color:var(--danger);margin:0;display:none;">Incorrect word</p>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <p style="font-size:12px;color:var(--mist);margin-bottom:10px;">Enter word <span class="quiz-word" id="qn3">#22</span></p>
+      <input class="input mono" id="quiz3" placeholder="Type word #22 here" style="margin-bottom:4px;" oninput="checkQuiz()" />
+      <p id="quiz3err" style="font-size:11px;color:var(--danger);margin:0;display:none;">Incorrect word</p>
+    </div>
+
+    <button class="btn-primary" id="quizBtn" disabled onclick="afterBackup()">Confirm &amp; continue</button>
+  </div>
+</div>
+
+<!-- ======== SCREEN 5: PIN SETUP ======== -->
+<div class="screen-slide hidden-right" id="screen-pin-setup">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content" style="display:flex;flex-direction:column;">
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;text-align:center;" id="pinTitle1">Set PIN</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 8px;line-height:1.6;text-align:center;" id="pinSub1">Choose a 6-digit PIN to protect this wallet</p>
+    <div id="pinDots1" class="pin-dots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-pad">
+      <div class="pin-key" onclick="pinInput(1,1)">1</div>
+      <div class="pin-key" onclick="pinInput(1,2)">2</div>
+      <div class="pin-key" onclick="pinInput(1,3)">3</div>
+      <div class="pin-key" onclick="pinInput(1,4)">4</div>
+      <div class="pin-key" onclick="pinInput(1,5)">5</div>
+      <div class="pin-key" onclick="pinInput(1,6)">6</div>
+      <div class="pin-key" onclick="pinInput(1,7)">7</div>
+      <div class="pin-key" onclick="pinInput(1,8)">8</div>
+      <div class="pin-key" onclick="pinInput(1,9)">9</div>
+      <div class="pin-key empty"></div>
+      <div class="pin-key" onclick="pinInput(1,0)">0</div>
+      <div class="pin-key action" onclick="pinDelete(1)"><i class="ti ti-delete"></i></div>
+    </div>
+    <p id="pinSetupErr" class="pin-err"></p>
+  </div>
+</div>
+
+<!-- ======== SCREEN 6: PIN CONFIRM ======== -->
+<div class="screen-slide hidden-right" id="screen-pin-confirm">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content" style="display:flex;flex-direction:column;">
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;text-align:center;" id="pinTitle2">Confirm PIN</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 8px;line-height:1.6;text-align:center;">Re-enter your PIN to confirm</p>
+    <div id="pinDots2" class="pin-dots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-pad">
+      <div class="pin-key" onclick="pinInput(2,1)">1</div>
+      <div class="pin-key" onclick="pinInput(2,2)">2</div>
+      <div class="pin-key" onclick="pinInput(2,3)">3</div>
+      <div class="pin-key" onclick="pinInput(2,4)">4</div>
+      <div class="pin-key" onclick="pinInput(2,5)">5</div>
+      <div class="pin-key" onclick="pinInput(2,6)">6</div>
+      <div class="pin-key" onclick="pinInput(2,7)">7</div>
+      <div class="pin-key" onclick="pinInput(2,8)">8</div>
+      <div class="pin-key" onclick="pinInput(2,9)">9</div>
+      <div class="pin-key empty"></div>
+      <div class="pin-key" onclick="pinInput(2,0)">0</div>
+      <div class="pin-key action" onclick="pinDelete(2)"><i class="ti ti-delete"></i></div>
+    </div>
+    <p id="pinMatchErr" style="font-size:11px;color:var(--danger);margin:10px 0 0;display:none;text-align:center;">PINs do not match. Try again.</p>
+  </div>
+</div>
+
+<!-- ======== SCREEN 7: DASHBOARD ======== -->
+<div class="screen-slide hidden-right" id="screen-dashboard">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> AIR-GAPPED — NO NETWORK CONNECTION</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <div class="hdr">
+      <div class="hdr-acct" onclick="openModal('accountModal')">
+        <div class="avatar" id="accIco"></div>
+        <div class="hdr-txt">
+          <div class="hdr-name"><span id="accName">Main Account</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6-6"/></svg></div>
+          <div class="hdr-addr"><span class="mono" id="accAddr"></span><button class="copy-btn" id="copyBtn" onclick="event.stopPropagation();copyAddr()" aria-label="Copy address"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg></button></div>
+        </div>
+      </div>
+      <div class="net-pill" onclick="openModal('netModal')"><span class="coin" id="netCoin"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6-6"/></svg></div>
+    </div>
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:11px;color:var(--mist);">Total balance (scanned)</span>
+        <i class="ti ti-eye" id="eyeicon" style="font-size:14px;color:var(--faint);cursor:pointer;" onclick="toggleBalance()"></i>
+      </div>
+      <p class="mono" id="balanceval" style="font-size:26px;font-weight:500;margin:0;transition:filter .2s;">—</p>
+      <p class="mono" id="balcoin" style="font-size:12px;color:var(--mist);margin:4px 0 0;"></p>
+      <p class="mono" style="font-size:10px;color:var(--faint);margin:8px 0 0;"><span id="testTag" class="hide" style="color:var(--ember);">● TESTNET · </span><span id="accSync">Synced 2h ago</span></p>
+    </div>
+    <div class="action-grid">
+      <div class="action-btn" onclick="goTo('screen-scan-sign')">
+        <div class="icon-circle" style="border-color:var(--signal);"><svg viewBox="0 0 24 24" style="transform:rotate(90deg)"><path d="M11.2526 0.340885L9.0356 2.835C8.63433 3.28643 8.9548 4.00005 9.55879 4.00005H11V17.1315L7.4453 14.7618C7.1671 14.5763 7 14.2641 7 13.9297V12.7325C7.5978 12.3867 8 11.7403 8 11.0001C8 9.89548 7.10457 9.00005 6 9.00005C4.89543 9.00005 4 9.89548 4 11.0001C4 11.7403 4.4022 12.3867 5 12.7325V13.9297C5 14.9328 5.50131 15.8695 6.33591 16.4259L11 19.5352V20.2676C10.4022 20.6134 10 21.2598 10 22.0001C10 23.1046 10.8954 24.0001 12 24.0001C13.1046 24.0001 14 23.1046 14 22.0001C14 21.2598 13.5978 20.6134 13 20.2676V16.5352L17.6641 13.4259C18.4987 12.8695 19 11.9328 19 10.9297V10.0001C19.5523 10.0001 20 9.55234 20 9.00005V7.00005C20 6.44777 19.5523 6.00005 19 6.00005H17C16.4477 6.00005 16 6.44777 16 7.00005V9.00005C16 9.55234 16.4477 10.0001 17 10.0001V10.9297C17 11.2641 16.8329 11.5763 16.5547 11.7618L13 14.1315V4.00005H14.4412C15.0452 4.00005 15.3657 3.28643 14.9644 2.835L12.7474 0.340885C12.3496 -0.10663 11.6504 -0.10663 11.2526 0.340885Z" fill="currentColor"/></svg></div><span>Sign TX</span>
+      </div>
+      <div class="action-btn" onclick="goTo('screen-receive')">
+        <div class="icon-circle"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="3" height="3" rx="0.5" fill="currentColor"/><rect x="16" y="16" width="3" height="3" rx="0.5" fill="currentColor"/><rect x="19" y="13" width="3" height="3" rx="0.5" fill="currentColor"/><rect x="19" y="19" width="3" height="3" rx="0.5" fill="currentColor"/><rect x="13" y="19" width="3" height="3" rx="0.5" fill="currentColor"/></svg></div><span>Receive</span>
+      </div>
+      <div class="action-btn" onclick="goTo('screen-sync')">
+        <div class="icon-circle"><svg viewBox="-3 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.427 5.01281L10.7071 6.29289C11.0976 6.68342 11.0976 7.31658 10.7071 7.70711C10.3166 8.09763 9.6834 8.09763 9.2929 7.70711L6.29289 4.70711C5.90237 4.31658 5.90237 3.68342 6.29289 3.29289L9.2929 0.292893C9.6834 -0.0976311 10.3166 -0.0976311 10.7071 0.292893C11.0976 0.683418 11.0976 1.31658 10.7071 1.70711L9.4053 3.00896C14.1877 3.22089 18 7.16525 18 12C18 14.3981 17.0565 16.6496 15.4053 18.3224C15.0173 18.7154 14.3841 18.7195 13.9911 18.3315C13.598 17.9436 13.5939 17.3104 13.9819 16.9174C15.2673 15.6152 16 13.8668 16 12C16 8.2774 13.0942 5.23349 9.427 5.01281zM8.5947 20.991C3.81226 20.7791 0 16.8348 0 12C0 9.59706 0.94734 7.34135 2.60451 5.66773C2.9931 5.27528 3.62625 5.27215 4.0187 5.66074C4.41115 6.04933 4.41428 6.68249 4.02569 7.07494C2.73567 8.37777 2 10.1295 2 12C2 15.7226 4.90584 18.7665 8.573 18.9872L7.2929 17.7071C6.90237 17.3166 6.90237 16.6834 7.2929 16.2929C7.6834 15.9024 8.3166 15.9024 8.7071 16.2929L11.7071 19.2929C12.0976 19.6834 12.0976 20.3166 11.7071 20.7071L8.7071 23.7071C8.3166 24.0976 7.6834 24.0976 7.2929 23.7071C6.90237 23.3166 6.90237 22.6834 7.2929 22.2929L8.5947 20.991z" fill="currentColor"/></svg></div><span>Sync</span>
+      </div>
+      <div class="action-btn" onclick="goTo('screen-pair')">
+        <div class="icon-circle"><svg viewBox="0 -0.5 25 25" style="transform:rotate(45deg)"><path d="M11.1828 7.68276C10.8899 7.97566 10.8899 8.45053 11.1828 8.74342C11.4756 9.03632 11.9505 9.03632 12.2434 8.74342L11.1828 7.68276ZM13.9851 5.94109L14.5154 6.47142V6.47142L13.9851 5.94109ZM18.5291 5.94109L17.9988 6.47142L18.5291 5.94109ZM18.5291 10.4851L17.9988 9.95476L18.5291 10.4851ZM15.7268 12.2268C15.4339 12.5197 15.4339 12.9945 15.7268 13.2874C16.0196 13.5803 16.4945 13.5803 16.7874 13.2874L15.7268 12.2268ZM13.7583 16.3185C14.0513 16.0257 14.0514 15.5508 13.7585 15.2579C13.4657 14.9649 12.9908 14.9648 12.6979 15.2576L13.7583 16.3185ZM10.9561 18.0591L11.4797 18.5961L11.4863 18.5895L10.9561 18.0591ZM6.44132 18.0309L5.91104 18.5612H5.91104L6.44132 18.0309ZM6.41208 13.5161L5.88171 12.9857L5.87499 12.9926L6.41208 13.5161ZM9.21441 11.7744C9.50731 11.4815 9.50731 11.0067 9.21441 10.7138C8.92152 10.4209 8.44665 10.4209 8.15375 10.7138L9.21441 11.7744ZM15.2744 10.2574C15.5673 9.96453 15.5673 9.48966 15.2744 9.19676C14.9815 8.90387 14.5066 8.90387 14.2138 9.19676L15.2744 10.2574ZM9.66975 13.7408C9.37686 14.0337 9.37686 14.5085 9.66975 14.8014C9.96265 15.0943 10.4375 15.0943 10.7304 14.8014L9.66975 13.7408ZM12.2434 8.74342L14.5154 6.47142L13.4548 5.41076L11.1828 7.68276L12.2434 8.74342ZM14.5154 6.47142C15.4773 5.50953 17.0369 5.50953 17.9988 6.47142L19.0594 5.41076C17.5117 3.86308 15.0024 3.86308 13.4548 5.41076L14.5154 6.47142ZM17.9988 6.47142C18.9607 7.43332 18.9607 8.99287 17.9988 9.95476L19.0594 11.0154C20.6071 9.46774 20.6071 6.95845 19.0594 5.41076L17.9988 6.47142ZM17.9988 9.95476L15.7268 12.2268L16.7874 13.2874L19.0594 11.0154L17.9988 9.95476ZM12.6979 15.2576L10.4259 17.5286L11.4863 18.5895L13.7583 16.3185L12.6979 15.2576ZM10.4325 17.5221C9.46732 18.4632 7.92491 18.4536 6.97159 17.5005L5.91104 18.5612C7.44495 20.0948 9.92671 20.1103 11.4797 18.5961L10.4325 17.5221ZM6.97159 17.5005C6.01827 16.5474 6.00828 15.0049 6.94918 14.0396L5.87499 12.9926C4.36107 14.5459 4.37714 17.0277 5.91104 18.5612L6.97159 17.5005ZM6.94241 14.0464L9.21441 11.7744L8.15375 10.7138L5.88175 12.9858L6.94241 14.0464ZM14.2138 9.19676L9.66975 13.7408L10.7304 14.8014L15.2744 10.2574L14.2138 9.19676Z" fill="currentColor"/></svg></div><span>Pair</span>
+      </div>
+    </div>
+    <p class="label-eyebrow">Assets (from last sync)</p>
+    <div class="card" id="assetList"></div>
+    <p style="font-size:10px;color:var(--faint);text-align:center;margin-top:12px;line-height:1.5;">
+      Balances are synced via QR scan from Vault Watch companion
+    </p>
+  </div>
+  <div class="navbar">
+    <div class="navitem active" onclick="goTo('screen-dashboard')"><i class="ti ti-wallet"></i><span>Wallet</span></div>
+    <div class="navitem" onclick="goTo('screen-history')"><i class="ti ti-clock"></i><span>History</span></div>
+    <div class="navitem" onclick="goTo('screen-settings')"><i class="ti ti-settings"></i><span>Settings</span></div>
+  </div>
+</div>
+
+<!-- ======== SCREEN 8: SIGN - SCAN QR ======== -->
+<div class="screen-slide hidden-right" id="screen-scan-sign">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> AIR-GAPPED — CAMERA ONLY</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="leaveScan('screen-dashboard')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;">Scan unsigned transaction</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 14px;line-height:1.6;">Signing with <b style="color:var(--paper)" class="accN">Main Account</b>. Bitcoin (PSBT) and Ethereum / EVM requests are detected automatically.</p>
+    <div class="seg" id="signSeg"><button class="on" onclick="segSwitch('signSeg',0,'signQR','signFile')"><i class="ti ti-qr-scan"></i> Scan QR</button><button onclick="segSwitch('signSeg',1,'signQR','signFile');stopScan()"><i class="ti ti-file-import"></i> File / paste</button></div>
+    
+    <div id="signQR">
+      <div class="qr-placeholder" style="height:220px;width:100%;border-radius:16px;margin-bottom:12px;"><video id="scanVideo-sign" class="scan-video hide" playsinline muted></video><div class="scanner-line"></div><i class="ti ti-camera" id="scanIcon-sign" style="font-size:48px;color:var(--faint);"></i></div>
+      <p id="scanStatus-sign" class="mono" style="font-size:11px;color:var(--faint);text-align:center;line-height:1.6;margin:0 0 14px;min-height:18px;">Camera off</p>
+      <button class="btn-primary" id="scanBtn-sign" onclick="startScan('sign')">Start camera</button>
+    </div>
+    <div id="signFile" class="hide">
+      <div class="drop" id="signDrop" onclick="document.getElementById('fileIn-sign').click()"><i class="ti ti-file-import" style="font-size:34px;"></i><span id="signDropTxt">Tap to choose the request<br/><span class="mono" style="font-size:10px;color:var(--faint);">file or QR image (PNG / JPG)</span></span></div>
+      <input type="file" id="fileIn-sign" class="hide" accept=".psbt,.txt,.json,image/*" multiple onchange="loadFiles('sign',this)">
+      <textarea class="input mono" id="paste-sign" placeholder="…or paste the text here" oninput="pasteChanged('sign')" style="min-height:84px;resize:none;font-size:11px;line-height:1.6;margin-bottom:12px;"></textarea>
+      <button class="btn-primary" id="signFileBtn" disabled onclick="submitPaste('sign')">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== SCREEN 9: SIGN - REVIEW ======== -->
+<div class="screen-slide hidden-right" id="screen-review">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> VERIFY BEFORE SIGNING</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="rejectReview()"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;">Review transaction</p>
+    <p style="font-size:12px;color:var(--ember);margin:0 0 16px;line-height:1.6;"><i class="ti ti-alert-triangle" style="font-size:12px;"></i> Verify every detail below. This is your only chance to verify before signing.</p>
+    <div id="reviewReal"></div>
+    <div class="card" id="reviewCard" style="margin-bottom:14px;"></div>
+    <div id="reviewWarn"></div>
+    <pre id="reviewCalls" class="rv-pre mono hide"></pre>
+    <button class="btn-ghost" id="reviewDetailBtn" style="width:100%;margin-bottom:12px;" onclick="toggleDetail()"><i class="ti ti-list-details"></i> Full details</button>
+    <pre id="reviewDetail" class="rv-pre mono hide"></pre>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn-primary" id="signBtn" onclick="beginSign()">Sign transaction</button>
+      <button class="btn-secondary hide" id="unsafeBtn" onclick="allowUnsafe()">Allow PSBT without previous transactions (riskier)</button>
+      <button class="btn-secondary" onclick="rejectReview()">Reject</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== SCREEN 10: PIN SIGN ======== -->
+<div class="screen-slide hidden-right" id="screen-pin-sign">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content" style="display:flex;flex-direction:column;">
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;text-align:center;" id="pinTitle3">Enter PIN to sign</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 8px;line-height:1.6;text-align:center;" id="pinSub3">Confirm with your PIN</p>
+    <div id="pinDots3" class="pin-dots">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-pad">
+      <div class="pin-key" onclick="pinInput(3,1)">1</div>
+      <div class="pin-key" onclick="pinInput(3,2)">2</div>
+      <div class="pin-key" onclick="pinInput(3,3)">3</div>
+      <div class="pin-key" onclick="pinInput(3,4)">4</div>
+      <div class="pin-key" onclick="pinInput(3,5)">5</div>
+      <div class="pin-key" onclick="pinInput(3,6)">6</div>
+      <div class="pin-key" onclick="pinInput(3,7)">7</div>
+      <div class="pin-key" onclick="pinInput(3,8)">8</div>
+      <div class="pin-key" onclick="pinInput(3,9)">9</div>
+      <div class="pin-key empty"></div>
+      <div class="pin-key" onclick="pinInput(3,0)">0</div>
+      <div class="pin-key action" onclick="pinDelete(3)"><i class="ti ti-delete"></i></div>
+    </div>
+    <p id="pinSignErr" class="pin-err"></p>
+    <button class="btn-ghost" style="margin:20px auto 0;" onclick="showToast('Biometric unlock is part of the Android build')">
+      <i class="ti ti-fingerprint"></i> Use biometrics
+    </button>
+  </div>
+</div>
+
+<!-- ======== SCREEN 11: SIGNED - SHOW QR ======== -->
+<div class="screen-slide hidden-right" id="screen-signed">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content" style="display:flex;flex-direction:column;align-items:center;">
+    <div style="width:56px;height:56px;border-radius:50%;background:var(--secure-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="ti ti-check" style="font-size:28px;color:var(--secure);"></i></div>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:19px;margin:0 0 4px;text-align:center;">Transaction signed</p>
+    <p id="signedNote" style="font-size:12px;color:var(--mist);margin:0 0 18px;line-height:1.6;text-align:center;"></p>
+    <div class="qr-box" id="signedQR"></div>
+    <p class="qr-meta mono" id="signedMeta"></p>
+    <p style="font-size:11px;color:var(--faint);text-align:center;line-height:1.6;margin:12px 0 16px;"><i class="ti ti-shield-lock" style="font-size:12px;"></i> This QR contains the signature / signed transaction only.<br/>No private keys are in the QR code.</p>
+    <div style="display:flex;gap:10px;width:100%;margin-bottom:10px;">
+      <button class="btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;" onclick="copySigned()"><i class="ti ti-copy"></i> Copy</button>
+      <button class="btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;" onclick="saveSigned()"><i class="ti ti-device-floppy"></i> Save file</button>
+    </div>
+    <button class="btn-primary" style="width:100%;" onclick="doneSigned()">Done</button>
+  </div>
+</div>
+
+<!-- ======== SCREEN 12: RECEIVE ======== -->
+<div class="screen-slide hidden-right" id="screen-receive">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> SAFE TO SHARE — PUBLIC ADDRESS ONLY</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="goTo('screen-dashboard')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 16px;">Receive</p>
+    <div style="display:flex;justify-content:center;margin-bottom:16px;">
+      <div class="net-pill" onclick="openModal('netModal')" style="padding-right:12px;"><span class="coin" id="rcvCoin"></span><span id="rcvNetName" style="font-size:13px;color:var(--paper);"></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6-6"/></svg></div>
+    </div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px;">
+      <div class="qr-placeholder" id="rcvQR" style="width:180px;height:180px;"></div>
+    </div>
+    <p id="rcvNote" style="font-size:11px;color:var(--faint);text-align:center;margin:0 0 14px;line-height:1.5;"></p>
+    <div class="address-bar" onclick="copyAddress()">
+      <span class="mono" id="receiveAddress" style="font-size:12px;color:var(--mist);word-break:break-all;"></span>
+      <i class="ti ti-copy" style="color:var(--signal);font-size:15px;"></i>
+    </div>
+    <button class="btn-secondary" style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="showToast('Address copied')">
+      <i class="ti ti-share"></i> Share address
+    </button>
+    <p style="font-size:10px;color:var(--faint);text-align:center;margin-top:14px;line-height:1.5;">
+      This is a public address. It is safe to share.<br/>Never share your seed phrase.
+    </p>
+  </div>
+</div>
+
+<!-- ======== SYNC ======== -->
+<div class="screen-slide hidden-right" id="screen-sync">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> AIR-GAPPED — IMPORT ONLY</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="leaveScan('screen-dashboard')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;">Sync balances</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 14px;line-height:1.6;">Import balances &amp; history for <b style="color:var(--paper)" class="accN">Main Account</b> from your watch app.</p>
+    <div class="seg" id="syncSeg"><button class="on" onclick="segSwitch('syncSeg',0,'syncQR','syncFile')"><i class="ti ti-qr-scan"></i> Scan QR</button><button onclick="segSwitch('syncSeg',1,'syncQR','syncFile');stopScan()"><i class="ti ti-file-import"></i> File / paste</button></div>
+    
+    <div id="syncQR">
+      <div class="qr-placeholder" style="height:220px;width:100%;border-radius:16px;margin-bottom:12px;"><video id="scanVideo-sync" class="scan-video hide" playsinline muted></video><div class="scanner-line"></div><i class="ti ti-camera" id="scanIcon-sync" style="font-size:48px;color:var(--faint);"></i></div>
+      <p id="scanStatus-sync" class="mono" style="font-size:11px;color:var(--faint);text-align:center;line-height:1.6;margin:0 0 14px;min-height:18px;">Camera off</p>
+      <button class="btn-primary" id="scanBtn-sync" onclick="startScan('sync')">Start camera</button>
+    </div>
+    <div id="syncFile" class="hide">
+      <div class="drop" id="syncDrop" onclick="document.getElementById('fileIn-sync').click()"><i class="ti ti-file-import" style="font-size:34px;"></i><span id="syncDropTxt">Tap to choose the sync file<br/><span class="mono" style="font-size:10px;color:var(--faint);">file or QR image (PNG / JPG)</span></span></div>
+      <input type="file" id="fileIn-sync" class="hide" accept=".psbt,.txt,.json,image/*" multiple onchange="loadFiles('sync',this)">
+      <textarea class="input mono" id="paste-sync" placeholder="…or paste the text here" oninput="pasteChanged('sync')" style="min-height:84px;resize:none;font-size:11px;line-height:1.6;margin-bottom:12px;"></textarea>
+      <button class="btn-primary" id="syncFileBtn" disabled onclick="submitPaste('sync')">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== PAIR LIST ======== -->
+<div class="screen-slide hidden-right" id="screen-pair">
+  <div class="airgap-banner"><i class="ti ti-shield-lock"></i> PUBLIC KEYS ONLY — NO SECRETS</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="goTo('screen-dashboard')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;">Pair a watch app</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 16px;line-height:1.6;">Choose the online app to pair with <b style="color:var(--paper)" class="accN">Main Account</b>. Pairing shares public keys only.</p>
+    <div id="pairList"></div>
+    <p style="font-size:10px;color:var(--faint);text-align:center;margin-top:10px;line-height:1.5;">Apps pair by protocol (QR or file). One account can be paired with many apps.</p>
+  </div>
+</div>
+
+<!-- ======== PAIR DETAIL ======== -->
+<div class="screen-slide hidden-right" id="screen-pair-detail">
+  <div class="airgap-banner"><i class="ti ti-shield-lock"></i> PUBLIC KEYS ONLY — NO SECRETS</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="leavePair()"><i class="ti ti-arrow-left"></i> All apps</button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <span class="asset-icon" id="pdIco" style="width:40px;height:40px;font-size:15px;"></span>
+      <div><p id="pdTitle" style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0;"></p><p class="mono" id="pdProto" style="font-size:10px;color:var(--faint);margin:0;"></p></div>
+    </div>
+    <p class="label-eyebrow">Share networks</p>
+    <div id="pdNets" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div id="pdSteps" style="margin-bottom:14px;"></div>
+    <div class="qr-box" id="pdQR" style="width:220px;height:220px;"></div>
+    <p class="qr-meta mono" id="pdMeta"></p>
+    <div id="pdNotes" style="margin:10px 0 12px;"></div>
+    <button class="btn-secondary hide" id="pdSave" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;" onclick="savePairing()"><i class="ti ti-device-floppy"></i> Save pairing file</button>
+    <button class="btn-primary" onclick="finishPair()">Mark as paired</button>
+  </div>
+</div>
+
+<!-- ======== SCREEN 13: HISTORY ======== -->
+<div class="screen-slide hidden-right" id="screen-history">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> OFFLINE — LOCAL LOG + QR SYNC</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 14px;">Transaction history</p>
+    <p style="font-size:11px;color:var(--faint);margin:0 0 16px;">Transactions signed on this device, plus history imported by sync</p>
+    <div class="card" id="histList"></div>
+  </div>
+  <div class="navbar">
+    <div class="navitem" onclick="goTo('screen-dashboard')"><i class="ti ti-wallet"></i><span>Wallet</span></div>
+    <div class="navitem active" onclick="goTo('screen-history')"><i class="ti ti-clock"></i><span>History</span></div>
+    <div class="navitem" onclick="goTo('screen-settings')"><i class="ti ti-settings"></i><span>Settings</span></div>
+  </div>
+</div>
+
+<!-- ======== SCREEN 14: IMPORT WALLET ======== -->
+<div class="screen-slide hidden-right" id="screen-import">
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <button class="back-btn" onclick="goTo('screen-onboard')"><i class="ti ti-arrow-left"></i> Back</button>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 8px;">Import wallet</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 20px;line-height:1.6;">Enter your existing seed phrase (12–24 words) to restore your wallet.</p>
+
+    <div style="display:flex;gap:8px;background:var(--ember-dim);border:0.5px solid rgba(245,169,62,0.35);border-radius:10px;padding:10px 12px;margin-bottom:18px;">
+      <i class="ti ti-alert-triangle" style="color:var(--ember);font-size:15px;margin-top:1px;"></i>
+      <span style="font-size:11px;color:var(--paper);line-height:1.5;">Only enter your seed phrase on this offline device. Never type it on a connected device.</span>
+    </div>
+
+    <p class="label-eyebrow">Seed phrase (12–24 words)</p>
+    <textarea class="input" id="importSeed" placeholder="word 1, word 2, word 3..." style="min-height:120px;resize:none;font-family:var(--font-mono);font-size:12px;line-height:1.8;margin-bottom:16px;" oninput="checkImport()"></textarea>
+
+    <p class="label-eyebrow">BIP39 passphrase (optional)</p>
+    <input class="input" id="importPass" type="password" placeholder="25th word (optional)" style="margin-bottom:20px;" />
+
+    <p class="label-eyebrow">Account name (optional)</p>
+    <input class="input" id="importName" maxlength="24" placeholder="Main Account" style="margin-bottom:20px;" />
+    <button class="btn-primary" id="importBtn" disabled onclick="doImport()">Import wallet</button>
+  </div>
+</div>
+
+<!-- ======== SCREEN 15: SETTINGS ======== -->
+<div class="screen-slide hidden-right" id="screen-settings">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> AIR-GAPPED — ALL SETTINGS LOCAL</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 14px;">Settings</p>
+    <p class="label-eyebrow">Security</p>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="row" style="cursor:pointer;" onclick="doLock()"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-lock" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Lock now</span></div><i class="ti ti-chevron-right" style="color:var(--faint);"></i></div>
+      <div class="row"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-fingerprint" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Biometric unlock</span></div><span style="font-size:11px;color:var(--faint);">Android build</span></div>
+      <div class="row" style="cursor:pointer;" onclick="startChangePin()"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-key" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Change PIN</span></div><i class="ti ti-chevron-right" style="color:var(--faint);"></i></div>
+      <div class="row" style="cursor:pointer;" onclick="showPhraseModal()"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-shield-lock" style="color:var(--danger);font-size:16px;"></i><span style="font-size:13px;">View recovery phrase</span></div><i class="ti ti-chevron-right" style="color:var(--faint);"></i></div>
+      <div class="row" style="cursor:pointer;" onclick="cycleAutolock()"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-clock" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Auto-lock</span></div><span id="autolockVal" style="font-size:12px;color:var(--mist);">1 minute</span></div>
+    </div>
+    <p class="label-eyebrow">Advanced</p>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="row"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-mask" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Duress PIN</span></div><span style="font-size:11px;color:var(--faint);">Not available yet</span></div>
+      <div class="row" style="cursor:pointer;" onclick="cycleAttempts()"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-trash" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Wipe after failed attempts</span></div><span id="attemptsVal" style="font-size:12px;color:var(--mist);">5 attempts</span></div>
+      <div class="row"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-usb" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Hardware-wallet PSBT mode</span></div><div class="toggle on" id="hwToggle" onclick="toggleHw()"><span></span></div></div>
+    </div>
+    <p class="label-eyebrow">Appearance</p>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="row"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-sun" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Light theme</span></div><div class="toggle" id="themeToggle" onclick="toggleTheme()"><span></span></div></div>
+    </div>
+    <p class="label-eyebrow">Wallet</p>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="row" style="cursor:pointer;" onclick="goTo('screen-addrtype')"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-coin-bitcoin" style="color:var(--ember);font-size:16px;"></i><span style="font-size:13px;">Bitcoin address type</span></div><div style="display:flex;align-items:center;gap:6px;"><span id="setAddrType" style="font-size:12px;color:var(--mist);">Native Segwit</span><i class="ti ti-chevron-right" style="color:var(--faint);"></i></div></div>
+      <div class="row" style="cursor:pointer;" onclick="showExportModal()"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-qr-code" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">Export public keys (xpub)</span></div><i class="ti ti-chevron-right" style="color:var(--faint);"></i></div>
+      <div class="row"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-info-circle" style="color:var(--mist);font-size:16px;"></i><span style="font-size:13px;">About</span></div><span class="mono" style="font-size:11px;color:var(--faint);">v1.0.0</span></div>
+    </div>
+    <p class="label-eyebrow">Danger zone</p>
+    <div class="card">
+      <div class="row" style="cursor:pointer;" onclick="showWipeModal('wipe')"><div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-trash" style="color:var(--danger);font-size:16px;"></i><span style="font-size:13px;color:var(--danger);">Wipe wallet</span></div><i class="ti ti-chevron-right" style="color:var(--faint);"></i></div>
+    </div>
+  </div>
+  <div class="navbar">
+    <div class="navitem" onclick="goTo('screen-dashboard')"><i class="ti ti-wallet"></i><span>Wallet</span></div>
+    <div class="navitem" onclick="goTo('screen-history')"><i class="ti ti-clock"></i><span>History</span></div>
+    <div class="navitem active" onclick="goTo('screen-settings')"><i class="ti ti-settings"></i><span>Settings</span></div>
+  </div>
+</div>
+
+<!-- ======== SCREEN: BITCOIN ADDRESS TYPE ======== -->
+<div class="screen-slide hidden-right" id="screen-addrtype">
+  <div class="airgap-banner"><i class="ti ti-wifi-off"></i> AIR-GAPPED — ALL SETTINGS LOCAL</div>
+  <div class="statusbar"><span>9:41</span><span><i class="ti ti-wifi-off"></i></span></div>
+  <div class="content">
+    <div class="at-head">
+      <button class="at-back" onclick="goTo('screen-settings')" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6l6 6"/></svg></button>
+      <p>Address Type</p>
+    </div>
+    <div id="addrTypeList"></div>
+    <p class="at-hint">Applies to Bitcoin mainnet addresses for the active account.<br/>Funds sent to any type stay recoverable from the same seed phrase.</p>
+  </div>
+</div>
+
+<!-- ======== NETWORK MODAL ======== -->
+<div class="modal-overlay" id="netModal" onclick="if(event.target===this)closeModal('netModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0;">Select Network</p>
+      <button class="copy-btn" onclick="closeModal('netModal')" aria-label="Close" style="color:var(--mist);padding:4px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div id="netList" style="margin-bottom:6px;"></div>
+  </div>
+</div>
+
+<!-- ======== ACCOUNT MODAL ======== -->
+<div class="modal-overlay" id="accountModal" onclick="if(event.target===this)closeModal('accountModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;text-align:center;">Accounts</p>
+    <p style="font-size:11px;color:var(--faint);margin:0 0 14px;text-align:center;">Each account has its own seed &amp; addresses</p>
+    <div id="acctList"></div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn-secondary" onclick="closeModal('accountModal');goTo('screen-create')">＋ New</button>
+      <button class="btn-secondary" onclick="closeModal('accountModal');goTo('screen-import')">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== TOAST ======== -->
+<div class="toast" id="toast"></div>
+
+<!-- ======== PHRASE MODAL ======== -->
+<div class="modal-overlay" id="phraseModal" onclick="if(event.target===this)closeModal('phraseModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 12px;text-align:center;">Recovery Phrase</p>
+    <div style="display:flex;gap:8px;background:var(--ember-dim);border:0.5px solid rgba(245,169,62,0.35);border-radius:10px;padding:10px 12px;margin-bottom:16px;">
+      <i class="ti ti-alert-triangle" style="color:var(--ember);font-size:15px;margin-top:1px;"></i>
+      <span style="font-size:11px;color:var(--paper);line-height:1.5;">Never share this phrase. Anyone with it can steal your funds.</span>
+    </div>
+    <div id="phraseGrid" class="seed-grid" style="filter:blur(6px);margin-bottom:14px;"></div>
+    <button class="btn-ghost" id="phraseRevealBtn" style="width:100%;margin-bottom:16px;" onclick="togglePhrase()">
+      <i class="ti ti-eye"></i> Reveal words
+    </button>
+    <button class="btn-secondary" onclick="closeModal('phraseModal')">Done</button>
+  </div>
+</div>
+
+<!-- ======== EXPORT XPUB MODAL ======== -->
+<div class="modal-overlay" id="exportModal" onclick="if(event.target===this)closeExport()">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 12px;text-align:center;">Export Public Keys</p>
+    <p style="font-size:12px;color:var(--mist);margin:0 0 16px;text-align:center;line-height:1.6;">Scan this QR code with your watch app to import public keys (xpub). This does NOT expose your private keys.</p>
+    <div class="qr-box" id="exportQR"></div>
+    <p class="qr-meta mono" id="exportMeta" style="margin-bottom:14px;"></p>
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      <button class="btn-secondary" onclick="copyExport()"><i class="ti ti-copy"></i> Copy</button>
+      <button class="btn-secondary" onclick="saveExport()"><i class="ti ti-device-floppy"></i> Save file</button>
+    </div>
+    <button class="btn-primary" onclick="closeExport()">Done</button>
+    <p class="security-badge" style="margin-top:12px;"><i class="ti ti-shield-lock"></i> Public keys only — no private key exposure</p>
+  </div>
+</div>
+
+<!-- ======== WIPE MODAL ======== -->
+<div class="modal-overlay" id="wipeModal" onclick="if(event.target===this)closeModal('wipeModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 12px;text-align:center;color:var(--danger);" id="wipeTitle">Wipe Wallet?</p>
+    <p id="wipeText" style="font-size:12px;color:var(--mist);margin:0 0 16px;text-align:center;line-height:1.6;">This permanently deletes every account and key from this device. Make sure you have your seed phrases backed up. Your PIN is required.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn-danger" onclick="confirmWipe()">Wipe everything</button>
+      <button class="btn-secondary" onclick="closeModal('wipeModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== SIGN SUCCESS MODAL ======== -->
+<div class="modal-overlay" id="successModal" onclick="if(event.target===this)closeModal('successModal')">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--secure-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+        <i class="ti ti-check" style="font-size:28px;color:var(--secure);"></i>
+      </div>
+      <p style="font-family:var(--font-display);font-weight:600;font-size:17px;margin:0 0 4px;">Transaction signed</p>
+      <p style="font-size:12px;color:var(--mist);margin:0;">Ready to broadcast via QR</p>
+    </div>
+    <button class="btn-primary" onclick="closeModal('successModal')">Show signed QR</button>
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+<script>
+var words=['orbit','cactus','velvet','harbor','flame','quartz','meadow','picture','anchor','ripple','signal','tundra','frost','dawn','oak','river','silk','ember','peak','cloud','stone','leaf','moon','hawk'];
+var addresses={btc:'bc1q9h8f2nv24kx2p7g3mz5j6t0u4v1w9x',eth:'0x7a3E9C4B2f8D1e6F5a9C0b3E4d7F2a1B8c6E5d9',sol:'7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',bnb:'bnb1grpf0955h0ykzq3ar5nmum7y6gdfl6lxfn46h2'};
+
+var pin1='',pin2='',pin3='';
+var pinStep=1;
+var currentScreen='screen-onboard';
+var navStack=['screen-onboard'];
+
+function goTo(id){
+  var screens=document.querySelectorAll('.screen-slide');
+  var newIdx=indexOf(id);
+  screens.forEach(function(s){
+    s.classList.remove('active','hidden-left','hidden-right');
+    var sIdx=indexOf(s.id);
+    if(sIdx<newIdx){s.classList.add('hidden-left');}
+    else if(sIdx>newIdx){s.classList.add('hidden-right');}
+    else{s.classList.add('active');}
+  });
+  if(navStack[navStack.length-1]!==id){navStack.push(id);}
+  currentScreen=id;
+  updateNav(id);
+}
+
+function goBack(){
+  if(navStack.length>1){
+    navStack.pop();
+    var target=navStack[navStack.length-1];
+    var screens=document.querySelectorAll('.screen-slide');
+    screens.forEach(function(s){
+      s.classList.remove('active','hidden-left','hidden-right');
+      var sIdx=indexOf(s.id);
+      var tIdx=indexOf(target);
+      if(sIdx<tIdx){s.classList.add('hidden-left');}
+      else if(sIdx>tIdx){s.classList.add('hidden-right');}
+      else{s.classList.add('active');}
+    });
+    currentScreen=target;
+    updateNav(target);
+  }
+}
+
+function indexOf(id){
+  var order=['screen-unlock','screen-onboard','screen-create','screen-seed','screen-quiz','screen-pin-setup','screen-pin-confirm','screen-dashboard','screen-scan-sign','screen-review','screen-pin-sign','screen-signed','screen-receive','screen-sync','screen-pair','screen-pair-detail','screen-history','screen-import','screen-settings','screen-addrtype'];
+  return order.indexOf(id);
+}
+
+function updateNav(id){
+  document.querySelectorAll('.navitem').forEach(function(n){n.classList.remove('active');});
+  if(id==='screen-dashboard'||id==='screen-scan-sign'||id==='screen-review'||id==='screen-pin-sign'||id==='screen-signed'||id==='screen-receive'||id==='screen-sync'||id==='screen-pair'||id==='screen-pair-detail'){
+    document.querySelectorAll('.navitem').forEach(function(n){
+      if(n.querySelector('.ti-wallet'))n.classList.add('active');
+    });
+  }else if(id==='screen-history'){
+    document.querySelectorAll('.navitem').forEach(function(n){
+      if(n.querySelector('.ti-clock'))n.classList.add('active');
+    });
+  }else if(id==='screen-settings'){
+    document.querySelectorAll('.navitem').forEach(function(n){
+      if(n.querySelector('.ti-settings'))n.classList.add('active');
+    });
+  }
+}
+
+// Seed grid
+function buildGrid(containerId){
+  var grid=document.getElementById(containerId);
+  if(!grid)return;
+  grid.innerHTML='';
+  words.forEach(function(w,i){
+    var d=document.createElement('div');
+    d.className='seed-word';
+    d.innerHTML='<span class="mono" style="color:var(--faint);">'+(i+1)+'</span><span class="mono">'+w+'</span>';
+    grid.appendChild(d);
+  });
+}
+buildGrid('seedgrid');
+buildGrid('phraseGrid');
+
+var seedRevealed=false;
+function toggleSeed(){
+  seedRevealed=!seedRevealed;
+  document.getElementById('seedgrid').style.filter=seedRevealed?'none':'blur(6px)';
+  document.getElementById('revealbtn').innerHTML=seedRevealed?'<i class="ti ti-eye-off"></i> Hide words':'<i class="ti ti-eye"></i> Reveal words';
+}
+
+var phraseRevealed=false;
+function togglePhrase(){
+  phraseRevealed=!phraseRevealed;
+  document.getElementById('phraseGrid').style.filter=phraseRevealed?'none':'blur(6px)';
+  document.getElementById('phraseRevealBtn').innerHTML=phraseRevealed?'<i class="ti ti-eye-off"></i> Hide words':'<i class="ti ti-eye"></i> Reveal words';
+}
+
+// Balance toggle
+var balanceHidden=false;
+function toggleBalance(){
+  balanceHidden=!balanceHidden;
+  renderDash();
+  var icon=document.getElementById('eyeicon');
+  icon.className=balanceHidden?'ti ti-eye-off':'ti ti-eye';
+}
+
+// Receive follows the selected network + account
+function pseudoQR(seed){var h=2166136261;for(var i=0;i<seed.length;i++){h=Math.imul(h^seed.charCodeAt(i),16777619)>>>0;}
+  var N=21,r='';function rnd(){h^=h<<13;h>>>=0;h^=h>>>17;h^=h<<5;h>>>=0;return h;}
+  function finder(x,y){return '<rect x="'+x+'" y="'+y+'" width="7" height="7"/><rect x="'+(x+1)+'" y="'+(y+1)+'" width="5" height="5" style="fill:var(--charcoal)"/><rect x="'+(x+2)+'" y="'+(y+2)+'" width="3" height="3"/>';}
+  for(var y=0;y<N;y++)for(var x=0;x<N;x++){if((x<8&&y<8)||(x>12&&y<8)||(x<8&&y>12))continue;if(rnd()%100<48)r+='<rect x="'+x+'" y="'+y+'" width="1" height="1"/>';}
+  return '<svg viewBox="-1 -1 23 23" width="150" height="150" fill="currentColor" style="color:var(--paper)">'+r+finder(0,0)+finder(14,0)+finder(0,14)+'</svg>';}
+function renderReceive(){
+  if(typeof ACC==='undefined'||!ACC||!ACC[curAcc]||!document.getElementById('rcvQR'))return;
+  var net=NET[selNet],ad=curAddr();
+  document.getElementById('rcvCoin').outerHTML=coinHTML(net.ic,24).replace('class="coin"','id="rcvCoin" class="coin"');
+  document.getElementById('rcvNetName').textContent=net.n;
+  document.getElementById('receiveAddress').textContent=ad||'—';
+  document.getElementById('rcvQR').innerHTML=ad?pseudoQR(ad):'';
+  document.getElementById('rcvNote').textContent=net.test?'Testnet address — only send test coins here.':(selNet==='bnb'?'BNB Smart Chain uses the same address as Ethereum.':(selNet==='eth'?'Send only ETH and ERC-20 tokens to this address.':(selNet==='btc'?'Send only Bitcoin (BTC) to this address · '+BTC_TYPES[btcType].n:'Send only Bitcoin (BTC) to this address.')));
+}
+
+function copyAddress(){
+  var addr=document.getElementById('receiveAddress').textContent;
+  navigator.clipboard.writeText(addr).then(function(){showToast('Address copied');}).catch(function(){showToast('Address copied');});
+}
+
+// PIN input
+function pinInput(step,num){
+  var pin='pin'+step;
+  if(window[pin].length>=6)return;
+  window[pin]+=num;
+  updatePinDots(step);
+  if(window[pin].length===6){
+    setTimeout(function(){handlePinComplete(step);},200);
+  }
+}
+
+function pinDelete(step){
+  var pin='pin'+step;
+  window[pin]=window[pin].slice(0,-1);
+  updatePinDots(step);
+}
+
+function updatePinDots(step){
+  var pin='pin'+step;
+  var dots=document.getElementById('pinDots'+step);
+  if(!dots)return;
+  var dotEls=dots.querySelectorAll('.pin-dot');
+  dotEls.forEach(function(d,i){
+    d.classList.toggle('filled',i<window[pin].length);
+  });
+}
+
+function handlePinComplete(step){
+  if(step===1){
+    goTo('screen-pin-confirm');
+  }else if(step===2){
+    if(pin2===pin1){
+      goTo('screen-dashboard');
+      showToast('Wallet created successfully');
+    }else{
+      document.getElementById('pinMatchErr').style.display='block';
+      pin2='';
+      updatePinDots(2);
+      setTimeout(function(){document.getElementById('pinMatchErr').style.display='none';},2000);
+    }
+  }else if(step===3){
+    showToast('Transaction signed');
+    setTimeout(function(){goTo('screen-signed');},600);
+  }
+}
+
+// Quiz
+function checkQuiz(){
+  var w1=words[6].toLowerCase();
+  var w2=words[13].toLowerCase();
+  var w3=words[21].toLowerCase();
+  var v1=document.getElementById('quiz1').value.trim().toLowerCase();
+  var v2=document.getElementById('quiz2').value.trim().toLowerCase();
+  var v3=document.getElementById('quiz3').value.trim().toLowerCase();
+
+  document.getElementById('quiz1err').style.display=v1&&v1!==w1?'block':'none';
+  document.getElementById('quiz2err').style.display=v2&&v2!==w2?'block':'none';
+  document.getElementById('quiz3err').style.display=v3&&v3!==w3?'block':'none';
+
+  var allCorrect=(v1===w1)&&(v2===w2)&&(v3===w3);
+  document.getElementById('quizBtn').disabled=!allCorrect;
+}
+
+// Import
+function checkImport(){
+  var val=document.getElementById('importSeed').value.trim();
+  var words=val.split(/[\s,]+/).filter(function(w){return w.length>0;});
+  document.getElementById('importBtn').disabled=words.length<12;
+}
+
+// Scan simulation
+function simulateScan(){
+  goTo('screen-review');
+}
+
+// Networks
+var NET={btc:{n:'Bitcoin',ic:'btc',addr:'btc',tick:'BTC',nm:'Bitcoin'},btct:{n:'Bitcoin Testnet',ic:'btct',addr:'btct',tick:'tBTC',nm:'Testnet Bitcoin',test:1},btct4:{n:'Bitcoin Testnet4 (Beta)',ic:'btct4',addr:'btct',tick:'tBTC',nm:'Testnet4 Bitcoin',test:1},btcs:{n:'Bitcoin Signet',ic:'btcs',addr:'btct',tick:'sBTC',nm:'Signet Bitcoin',test:1},eth:{n:'Ethereum Mainnet',ic:'eth',addr:'eth',tick:'ETH',nm:'Ethereum'},bnb:{n:'BNB Smart Chain',ic:'bnb',addr:'bnb',tick:'BNB',nm:'BNB'}},selNet='btc',netGroupOpen=false;
+var PAIRN={btc:'Bitcoin',eth:'Ethereum',sol:'Solana',bnb:'BNB Chain'};
+var BTC_D='M33.2538 16.1292C33.2538 25.0371 26.0329 32.2584 17.1255 32.2584C8.21799 32.2584 0.99707 25.0371 0.99707 16.1292C0.99707 7.22128 8.21799 0 17.1255 0C26.0329 0 33.2538 7.22128 33.2538 16.1292ZM21.0002 10.1366C23.2438 10.9071 24.8849 12.0607 24.5629 14.2077C24.3291 15.7799 23.4543 16.5403 22.2921 16.8065C23.8866 17.6335 24.4301 19.2029 23.9251 21.1005C22.9664 23.8314 20.6874 24.0613 17.6562 23.4905L16.9202 26.4261L15.1434 25.9844L15.8693 23.0882C15.4087 22.9742 14.9379 22.8522 14.4529 22.7221L13.724 25.6325L11.9492 25.1908L12.6842 22.2491L9.10534 21.3496L9.98817 19.3226C9.98817 19.3226 11.2982 19.6685 11.28 19.6433C11.7832 19.7673 12.0069 19.4406 12.095 19.2238L14.0895 11.256C14.1117 10.8798 13.9811 10.4059 13.2613 10.2264C13.2886 10.2072 11.9705 9.90669 11.9705 9.90669L12.4433 8.01585L16.0272 8.90026L16.7562 5.99188L18.532 6.43358L17.8182 9.28448C18.2961 9.39238 18.776 9.5023 19.2427 9.61828L19.9514 6.78553L21.7282 7.22724L21.0002 10.1366ZM16.7488 14.9882C17.9591 15.3091 20.5928 16.0074 21.0519 14.1765C21.5202 12.3033 18.9615 11.7376 17.7087 11.4606L17.7086 11.4606L17.7085 11.4606C17.5666 11.4292 17.4414 11.4015 17.3393 11.3761L16.4545 14.9117C16.5388 14.9325 16.6378 14.9588 16.7488 14.9882ZM15.3775 20.6807C16.8271 21.0626 19.9976 21.8977 20.5021 19.8803C21.0185 17.8175 17.9445 17.1305 16.4446 16.7952L16.4441 16.7951C16.2767 16.7577 16.129 16.7247 16.008 16.6946L15.032 20.5913C15.1311 20.6158 15.2472 20.6464 15.3771 20.6806L15.3775 20.6807Z';
+var BTC_COL={btc:'#F7931A',btct:'var(--secure)',btct4:'var(--secure)',btcs:'#9C2F61',btcg:'#8E8E93'};
+var COIN_SVG={eth:"<svg viewBox=\"0 0 256 417\"><polygon fill=\"#343434\" points=\"127.9611 0 125.1661 9.5 125.1661 285.168 127.9611 287.958 255.9231 212.32\"/><polygon fill=\"#8C8C8C\" points=\"127.962 0 0 212.32 127.962 287.959 127.962 154.158\"/><polygon fill=\"#3C3C3B\" points=\"127.9611 312.1866 126.3861 314.1066 126.3861 412.3056 127.9611 416.9066 255.9991 236.5866\"/><polygon fill=\"#8C8C8C\" points=\"127.962 416.9052 127.962 312.1852 0 236.5852\"/><polygon fill=\"#141414\" points=\"127.9611 287.9577 255.9211 212.3207 127.9611 154.1587\"/><polygon fill=\"#393939\" points=\"0.0009 212.3208 127.9609 287.9578 127.9609 154.1588\"/></svg>",bnb:"<svg viewBox=\"0 0 24 24\"><path d=\"M5.631 3.676 12.001 0l6.367 3.676-2.34 1.358L12 2.716 7.972 5.034l-2.34-1.358Zm12.737 4.636-2.34-1.358L12 9.272 7.972 6.954l-2.34 1.358v2.716l4.026 2.318v4.636L12 19.341l2.341-1.359v-4.636l4.027-2.318V8.312Zm0 7.352v-2.716l-2.34 1.358v2.716l2.34-1.358Zm1.663.96-4.027 2.318v2.717l6.368-3.677V10.63l-2.34 1.358v4.636Zm-2.34-10.63 2.34 1.358v2.716l2.341-1.358V5.994l-2.34-1.358-2.342 1.358ZM9.657 19.926v2.716L12 24l2.341-1.358v-2.716l-2.34 1.358-2.343-1.358Zm-4.027-4.262 2.341 1.358v-2.716l-2.34-1.358v2.716Zm4.027-9.67L12 7.352l2.341-1.358-2.34-1.358-2.343 1.358Zm-5.69 1.358L6.31 5.994 3.968 4.636l-2.34 1.358V8.71l2.34 1.358V7.352Zm0 4.636-2.34-1.358v7.352l6.368 3.677v-2.717l-4.028-2.318v-4.636Z\" fill=\"#ffc900\"/></svg>"};
+var COIN_BG={eth:'#ECEEF1',bnb:'var(--steel)'},COIN_PAD={eth:0.26,bnb:0.2};
+function coinHTML(k,sz){var st='width:'+sz+'px;height:'+sz+'px;';
+  if(BTC_COL[k])return '<span class="coin" style="'+st+'background:radial-gradient(circle closest-side,#fff 0 68%,transparent 69%);"><svg viewBox="0.997 0 32.257 32.258"><path fill-rule="evenodd" clip-rule="evenodd" d="'+BTC_D+'" style="fill:'+BTC_COL[k]+'"/></svg></span>';
+  var pad=Math.round(sz*(COIN_PAD[k]||0));
+  return '<span class="coin" style="'+st+'background:'+COIN_BG[k]+';padding:'+pad+'px;box-sizing:border-box;">'+COIN_SVG[k]+'</span>';}
+function iconOf(k){return coinHTML(NET[k].ic,arguments[1]||30);}
+function identicon(seed,color,cls){var h=2166136261;for(var i=0;i<seed.length;i++){h=Math.imul(h^seed.charCodeAt(i),16777619)>>>0;}
+  var r='';for(var y=0;y<5;y++){for(var x=0;x<3;x++){if(((Math.imul(h,2654435761)>>>0)>>>(y*3+x+8)&1)){r+='<rect x="'+(5+x*4)+'" y="'+(5+y*4)+'" width="4" height="4"/>';if(x<2)r+='<rect x="'+(5+(4-x)*4)+'" y="'+(5+y*4)+'" width="4" height="4"/>';}}}
+  return '<svg viewBox="0 0 30 30" style="color:'+color+'" fill="currentColor">'+r+'</svg>';}
+function shortAddr(a){return a.length>18?a.slice(0,8)+'...'+a.slice(-6):a;}
+
+var CHECK='<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--signal)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',CHEV_D='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6l6-6"/></svg>',CHEV_U='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6l6 6"/></svg>';
+function netRow(k,sub){var on=selNet===k;return '<div class="nrow'+(on?' on':'')+(sub?' sub':'')+'" onclick="pickNet(\''+k+'\')">'+coinHTML(NET[k].ic,sub?28:30)+'<span class="nname">'+NET[k].n+'</span>'+(on?CHECK:'')+'</div>';}
+function renderNets(){
+  var kids=['btct','btct4','btcs'],kidSel=kids.indexOf(selNet)>-1;
+  var h=netRow('btc')
+   +'<div class="ngroup'+(kidSel&&!netGroupOpen?' on':'')+'"><div class="nrow plain" onclick="toggleNetGroup()">'+coinHTML('btcg',30)+'<span class="nname">Bitcoin Testnet</span>'+((kidSel&&!netGroupOpen)?CHECK:(netGroupOpen?CHEV_U:CHEV_D))+'</div>'
+   +(netGroupOpen?'<div class="ngroup-body">'+kids.map(function(k){return netRow(k,1);}).join('')+'</div>':'')+'</div>'
+   +netRow('eth')+netRow('bnb');
+  document.getElementById('netList').innerHTML=h;
+  document.getElementById('netCoin').outerHTML=coinHTML(NET[selNet].ic,24).replace('class="coin"','id="netCoin" class="coin"');
+  renderDash();
+}
+function toggleNetGroup(){netGroupOpen=!netGroupOpen;renderNets();}
+function pickNet(k){selNet=k;renderNets();closeModal('netModal');showToast('Network: '+NET[k].n);}
+function fmtUsd(v){return '$'+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtAmt(k,v){return (NET[k].ic.indexOf('btc')===0&&v<0.001)?v.toFixed(8):String(v);}
+function renderDash(){
+  if(typeof ACC==='undefined'||!ACC||!ACC[curAcc])return;
+  var a=ACC[curAcc],hd=a.h[selNet],net=NET[selNet];
+  var usd=hd?hd[1]:0,amt=hd?hd[0]:0;
+  document.getElementById('balanceval').textContent=balanceHidden?'••••••':fmtUsd(usd);
+  document.getElementById('balcoin').textContent=balanceHidden?'••••':fmtAmt(selNet,amt)+' '+net.tick;
+  document.getElementById('testTag').classList.toggle('hide',!net.test);
+  document.getElementById('assetList').innerHTML=hd&&amt>0
+    ?'<div class="asset-row"><div style="display:flex;align-items:center;gap:10px;">'+coinHTML(net.ic,30)+'<div><p style="font-size:13px;margin:0;">'+net.nm+'</p><p class="mono" style="font-size:10px;color:var(--faint);margin:0;">'+(balanceHidden?'••••':fmtAmt(selNet,amt)+' '+net.tick)+'</p></div></div><span class="mono" style="font-size:13px;">'+(balanceHidden?'••••':(net.test?fmtUsd(usd):'$'+usd.toLocaleString('en-US')))+'</span></div>'
+    :'<p style="font-size:12px;color:var(--faint);text-align:center;margin:18px 0;">No assets synced for this network</p>';
+  updateAddr();renderReceive();
+}
+function curAddr(){if(typeof ACC==='undefined'||!ACC||!ACC[curAcc])return '';if(NET[selNet].addr==='btc'&&typeof btcAddr==='function')return btcAddr(curAcc,btcType);return ACC[curAcc].a[NET[selNet].addr]||'';}
+function updateAddr(){if(typeof ACC==='undefined'||!ACC||!ACC[curAcc])return;var el=document.getElementById('accAddr'),cb=document.getElementById('copyBtn');if(!el)return;
+  var ad=curAddr();el.textContent=ad?shortAddr(ad):'—';cb.style.display=ad?'flex':'none';}
+function copyAddr(){var ad=curAddr();if(!ad)return;try{navigator.clipboard.writeText(ad);}catch(e){}showToast('Address copied');}
+// Pair apps
+var APPS=[
+ {id:'vw',n:'Vault Watch',l:'V',c:'var(--secure)',p:'Vault QR / file',nets:['btc','eth','sol','bnb'],st:['Open Vault Watch → Add signer','Scan this QR (or load the file)','Confirm the account name matches']},
+ {id:'kn',n:'Keystone Nexus',l:'K',c:'var(--signal)',p:'Keystone UR (BC-UR) QR',nets:['btc','eth','sol'],st:['Open Nexus → Connect hardware wallet','Choose QR-based wallet','Scan this animated QR']},
+ {id:'mm',n:'MetaMask',l:'M',c:'#F6851B',p:'EIP-4527 QR (EVM)',nets:['eth','bnb'],st:['MetaMask → Add account → Hardware wallet','Select QR-based','Scan this QR to import accounts']},
+ {id:'rb',n:'Rabby',l:'R',c:'#8697FF',p:'EIP-4527 QR (EVM)',nets:['eth','bnb'],st:['Rabby → Add address → Hardware wallet','Select QR-based','Scan this QR to import accounts']},
+ {id:'ok',n:'OKX Wallet',l:'O',c:'var(--paper)',p:'QR hardware (UR)',nets:['btc','eth','sol'],st:['OKX → Connect hardware wallet','Select QR-based','Scan this QR to import']},
+ {id:'ot',n:'Other / file',l:'+',c:'var(--faint)',p:'Public key export',nets:['btc','eth','sol','bnb'],st:['Save the pairing file','Transfer it by SD card or USB','Import it into your watch app']}
+],paired={vw:1},curApp=null;
+function renderPair(){document.getElementById('pairList').innerHTML=APPS.map(function(a){return '<div class="acct" onclick="openPair(\''+a.id+'\')"><span class="asset-icon" style="background:'+a.c+';color:#fff;">'+a.l+'</span><div style="flex:1"><p style="font-size:13px;margin:0">'+a.n+'</p><p class="mono" style="font-size:10px;color:var(--faint);margin:0">'+a.p+'</p></div>'+(paired[a.id]?'<span class="pill active" style="padding:3px 9px;font-size:10px;">Paired</span>':'<i class="ti ti-chevron-right" style="color:var(--faint)"></i>')+'</div>';}).join('');}
+function openPair(id){curApp=APPS.filter(function(a){return a.id===id;})[0];var a=curApp;
+  document.getElementById('pdIco').textContent=a.l;document.getElementById('pdIco').style.background=a.c;document.getElementById('pdIco').style.color='#fff';
+  document.getElementById('pdTitle').textContent=a.n;document.getElementById('pdProto').textContent=a.p;
+  document.getElementById('pdNets').innerHTML=a.nets.map(function(k){return '<span class="pill active" onclick="this.classList.toggle(\'active\')">'+PAIRN[k]+'</span>';}).join('');
+  document.getElementById('pdSteps').innerHTML=a.st.map(function(t,i){return '<div class="sign-flow-step" style="padding:10px;margin-bottom:6px;"><div class="step-num">'+(i+1)+'</div><span style="font-size:12px;">'+t+'</span></div>';}).join('');
+  goTo('screen-pair-detail');}
+function finishPair(){paired[curApp.id]=1;renderPair();showToast('Paired with '+curApp.n);goTo('screen-pair');}
+renderNets();renderPair();
+// Accounts
+var ACC=[],curAcc=0;
+function renderAcc(){
+  document.getElementById('acctList').innerHTML=ACC.map(function(a,i){return '<div class="acct'+(i===curAcc?' on':'')+'" onclick="setAcc('+i+')"><span class="avatar sm">'+identicon(a.n,a.c)+'</span><div style="flex:1"><p style="font-size:13px;margin:0">'+a.n+'</p><p class="mono" style="font-size:10px;color:var(--faint);margin:0">'+a.w+'</p></div><span class="mono" style="font-size:12px">'+a.b+'</span></div>';}).join('');
+  var a=ACC[curAcc];if(!a)return;
+  document.getElementById('accName').textContent=a.n;document.getElementById('accSync').textContent=a.s;
+  document.getElementById('accIco').innerHTML=identicon(a.n,a.c);updateAddr();
+  document.querySelectorAll('.accN').forEach(function(e){e.textContent=a.n;});
+  renderDash();
+}
+function setAcc(i){curAcc=i;if(typeof renderAddrType==='function')renderAddrType();balanceHidden=false;document.getElementById('eyeicon').className='ti ti-eye';renderAcc();closeModal('accountModal');showToast('Switched to '+ACC[i].n);}
+function openModal(id){if(id==='netModal')renderNets();else renderAcc();document.getElementById(id).classList.add('show');}
+function segSwitch(seg,i,a,b){document.querySelectorAll('#'+seg+' button').forEach(function(x,j){x.classList.toggle('on',j===i);});document.getElementById(a).classList.toggle('hide',i===1);document.getElementById(b).classList.toggle('hide',i===0);}
+function pickFile(drop,btn){var d=document.getElementById(drop);d.classList.add('has');d.innerHTML='<i class="ti ti-file-check" style="font-size:34px;"></i><span class="mono">unsigned_tx.psbt<br/>412 bytes</span>';document.getElementById(btn).disabled=false;}
+// Bitcoin address types
+var BTC_TYPES=[
+ {k:'p2wpkh',n:'Native Segwit (P2WPKH)',path:"m/84'/0'/0'/0/0",short:'Native Segwit',rec:1},
+ {k:'p2sh',n:'Nested Segwit (P2SH-P2WPKH)',path:"m/49'/0'/0'/0/0",short:'Nested Segwit'},
+ {k:'p2tr',n:'Taproot (P2TR)',path:"m/86'/0'/0'/0/0",short:'Taproot'},
+ {k:'p2pkh',n:'Legacy (P2PKH)',path:"m/44'/0'/0'/0/0",short:'Legacy'}
+],btcType=0;
+try{var _bt=parseInt(localStorage.getItem('vault-btc-type'),10);if(_bt>=0&&_bt<4)btcType=_bt;}catch(e){}
+var BTC_ALT=[
+ {p2sh:'3F9KkBqLw4Zt8nR2xYvC6hDpM1sUJfruNW5k',p2tr:'bc1pzref7q3m8xk2vn6c4dj9ptw0ahy5l2gsmqpcv5et',p2pkh:'1HDNDNv8Qx3kT7mWc2pRz5YbLfAdqixFQPm'},
+ {p2sh:'3KmT7vQx2Rn9Bc4Wd8LpY5hZs1GaE6uJt3q',p2tr:'bc1p8w4ln2kqv7xs3m9dtc5hy0apr6zj2ewfg4n8u7k',p2pkh:'1BoCq8Tn5Rv2Xk9Wm4LdY7pHs3ZaE1uJgFk'},
+ {p2sh:'3QhV5xRn8Tc2Bk7Wm9LdY4pZs6GaE3uJj1d',p2tr:'bc1p3k9vq5xn7rs2mdtc8hy4apw6zj0ewfl2g5u9m4',p2pkh:'1Mz7Rq3Tn9Vx5Bk2Wc8LdY4pHs6ZaE1uJwPe'}
+];
+function btcAddr(acc,t){var tp=BTC_TYPES[t].k;if(tp==='p2wpkh')return ACC[acc].a.btc||'';var alt=BTC_ALT[acc%BTC_ALT.length];return alt[tp]||'';}
+function midAddr(a){return a.length>20?a.slice(0,8)+'...'+a.slice(-8):a;}
+function renderAddrType(){
+  var el=document.getElementById('addrTypeList');
+  if(el&&typeof ACC!=='undefined'&&ACC&&ACC[curAcc]){
+    el.innerHTML=BTC_TYPES.map(function(t,i){
+      var ad=btcAddr(curAcc,i),on=i===btcType;
+      return '<div class="at-card'+(on?' on':'')+'" onclick="pickBtcType('+i+')">'
+       +'<div class="at-top"><span class="at-name">'+t.n+' <span class="at-path">('+t.path+')</span></span>'+(on?'<svg class="at-check" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>':'')+'</div>'
+       +'<div class="at-bot"><span class="at-addr" onclick="event.stopPropagation();copyTypeAddr('+i+')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>'+midAddr(ad)+'</span>'+(t.rec?'<span class="at-rec">Recommend</span>':'')+'</div></div>';
+    }).join('');
+  }
+  var lbl=document.getElementById('setAddrType');if(lbl)lbl.textContent=BTC_TYPES[btcType].short;
+}
+function pickBtcType(i){
+  btcType=i;try{localStorage.setItem('vault-btc-type',String(i));}catch(e){}
+  renderAddrType();if(typeof renderDash==='function')renderDash();
+  showToast('Address type: '+BTC_TYPES[i].short);
+}
+function copyTypeAddr(i){var ad=btcAddr(curAcc,i);try{navigator.clipboard.writeText(ad);}catch(e){}showToast('Address copied');}
+renderAddrType();
+renderAcc();
+// Modals
+function showPhraseModal(){phraseRevealed=false;document.getElementById('phraseGrid').style.filter='blur(6px)';document.getElementById('phraseRevealBtn').innerHTML='<i class="ti ti-eye"></i> Reveal words';document.getElementById('phraseModal').classList.add('show');}
+function showExportModal(){document.getElementById('exportModal').classList.add('show');}
+function showWipeModal(){document.getElementById('wipeModal').classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+// Toast
+var toastTimer;
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){t.classList.remove('show');},2000);
+}
+
+// Theme toggle
+function toggleTheme(){
+  var html=document.documentElement;
+  var isLight=html.getAttribute('data-theme')==='light';
+  html.setAttribute('data-theme',isLight?'dark':'light');
+  document.getElementById('themeToggle').classList.toggle('on',!isLight);
+  localStorage.setItem('vault-theme',isLight?'dark':'light');
+}
+(function(){
+  var saved=localStorage.getItem('vault-theme');
+  if(saved==='light'){
+    document.documentElement.setAttribute('data-theme','light');
+    var t=document.getElementById('themeToggle');
+    if(t)t.classList.add('on');
+  }
+})();
+
+// Clock
+function updateClock(){
+  var now=new Date();
+  var h=now.getHours();
+  var m=now.getMinutes().toString().padStart(2,'0');
+  var t=h+':'+m;
+  document.querySelectorAll('.statusbar').forEach(function(sb){sb.querySelector('span').textContent=t;});
+}
+updateClock();
+setInterval(updateClock,10000);
+</script>
+<script src="assets/jsQR.js"></script>
+<script src="vault_app.js"></script>
+</body>
+</html>

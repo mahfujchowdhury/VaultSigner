@@ -1,0 +1,7 @@
+pywebview>=5.0
+embit
+pycryptodome
+eth_account
+cbor2
+rlp
+qrcode
